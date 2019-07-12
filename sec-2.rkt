@@ -348,15 +348,16 @@
       (if (eq? p 'u) (upper-bound-interval i) (lower-bound-interval i)))
     (define (mult pa pb) ; (p)osition of a/b, (u)pper or (l)ower
       (* (pos a pa) (pos b pb)))
+    (define (switch-args) (mul-interval b a))
     (cond
       ((signs '+ '+) (make-interval (mult 'l 'l) (mult 'u 'u)))
       ((signs '- '+) (make-interval (mult 'l 'u) (mult 'u 'l)))
       ((signs  0 '+) (make-interval (mult 'l 'u) (mult 'u 'u)))
-      ((signs '+ '-) (mul-interval b a))
+      ((signs '+ '-) (switch-args))
       ((signs '- '-) (make-interval (mult 'u 'u) (mult 'l 'l)))
       ((signs  0 '-) (make-interval (mult 'u 'l) (mult 'l 'l)))
-      ((signs '+  0) (mul-interval b a))
-      ((signs '-  0) (mul-interval b a))
+      ((signs '+  0) (switch-args))
+      ((signs '-  0) (switch-args))
       ((signs  0  0) (make-interval
                       (min (mult 'l 'u) (mult 'u 'l))
                       (max (mult 'l 'l) (mult 'u 'u))))
@@ -509,4 +510,444 @@
         bk
         (iter (cdr fw) (cons (car fw) bk))))
   (iter l '()))
+
+;; Ex 2.18 Skipped
+
+(define (same-parity . xs)
+  (define (recur parity xs)
+    (cond
+      ((not (pair? xs)) xs)
+      ((eq? (even? parity) (even? (car xs)))
+       (cons (car xs) (recur parity (cdr xs))))
+      (else (recur parity (cdr xs)))))
+  (recur (car xs) xs))
+              
+(define (map proc items)
+  (if (null? items)
+      nil
+      (cons (proc (car items))
+            (map proc (cdr items)))))
+
+;; Ex 2.21
+
+(define (square-list-recur items)
+  (if (null? items)
+      nil
+      (cons (square (car items)) (square-list-recur (cdr items)))))
+
+(define (square-list-map items)
+  (map square items))
+
+;; Ex 2.23
+
+(define (for-each f l) (map f l) nil)
   
+;; Ex 2.25
+;; (cadar (cdadar (cdadar (cdr '(1 (2 (3 (4 (5 (6 7))))))))))
+
+;; Ex 2.27
+(define (deep-reverse l)
+  (define (iter l answer)
+    (display (list 'iter l answer))
+    (newline)
+    (if (null? l)
+        answer
+        (let ((c (car l)))
+          (if (pair? c)
+              (iter (cdr l) (cons (deep-reverse c) answer))
+              (iter (cdr l) (cons c answer))))))
+  (iter l '()))
+
+;; Ex 2.28
+(define x 
+  (list (list 1 2) (list 3 4)))
+
+(define (fringe tree)
+  (if (not (pair? tree))
+      (list tree)
+      (append (fringe (car tree))
+              (if (not (null? (cdr tree)))
+                  (fringe (cdr tree))
+                  (list)))))
+
+;; Ex 2.29
+(define (make-mobile left right)
+  (list left right))
+
+(define (left-branch mobile)
+  (car mobile))
+
+(define (right-branch mobile)
+  (cadr mobile))
+
+(define (make-branch length structure)
+  (list length structure))
+
+(define (branch-length branch)
+  (car branch))
+
+(define (branch-structure branch)
+  (cadr branch))
+
+(define (total-weight m)
+  (define (branch-weight b)
+    (if (pair? (branch-structure b))
+        (total-weight (branch-structure b))
+        (branch-structure b)))
+  (+ (branch-weight (left-branch m))
+     (branch-weight (right-branch m))))
+
+(define (torque b)
+  (* (branch-length b) (total-weight b)))
+
+(define (submobile? b)
+  (pair? (branch-structure b)))
+
+(define (balanced? m)
+  (let ((l (left-branch m))
+        (r (right-branch m)))
+    (and
+     (= (torque l) (torque r))
+     (if (submobile? l)
+         (balanced? l)
+         true)
+     (if (submobile? r)
+         (balanced? r)
+         true))))
+
+;; Ex 2.30
+
+;; (define (square-tree t)
+;;   (define (mapper t)
+;;     (if (pair? t)
+;;         (map mapper t)
+;;         (square t)))
+;;   (map mapper t))
+
+;; Ex 2.31
+(define (tree-map f t)
+  (define (mapper t)
+    (if (pair? t)
+        (map mapper t)
+        (f t)))
+  (map mapper t))
+    
+(define (square-tree t) (tree-map square t))
+
+;; Ex 2.32
+(define (subsets s)
+  (if (null? s)
+      (list nil)
+      (let ((rest (subsets (cdr s))))
+        (append rest (map (lambda (ss) (cons (car s) ss)) rest)))))
+
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+      initial
+      (op (car sequence)
+          (accumulate op 
+                      initial 
+                      (cdr sequence)))))
+
+;; Ex 2.33
+(define (map-2 p sequence)
+  (accumulate (lambda (x y) (cons (p x) y)) nil sequence))
+(define (append seq1 seq2)
+  (accumulate cons seq2 seq1))
+(define (length sequence)
+  (accumulate (lambda (cur acc) (+ 1 acc)) 0 sequence))
+
+;; Ex 2.34
+(define 
+  (horner-eval x coefficient-sequence)
+  (accumulate 
+   (lambda (this-coeff higher-terms)
+     (display (list this-coeff higher-terms))
+     (newline)
+     (+ (* higher-terms x) this-coeff))
+   0
+   coefficient-sequence))
+
+;; Ex 2.35
+(define (count-leaves t)
+  (accumulate
+   +
+   0
+   (map
+    (lambda (x)
+      (cond
+        ((null? x) 0)
+        ((not (pair? x)) 1)
+        (else (count-leaves x))))
+    t)))
+
+;; Ex 2.36
+(define (accumulate-n op init seqs)
+  (if (null? (car seqs))
+      nil
+      (cons (accumulate op init (map car seqs))
+            (accumulate-n op init (map cdr seqs)))))
+
+;; Ex 2.37
+(define (tee x)
+  (display x)
+  (newline)
+  x)
+
+(define (zip a b)
+  (cond
+    ((and (null? a) (null? b)) '())
+    ((null? a) (zip b '()))
+    ((null? b) (cons (list (car a) '()) (zip (cdr a) b)))
+    (else 
+     (cons (list (car a) (car b))
+           (zip (cdr a) (cdr b))))))
+
+(define M '((1 2 3 4) (5 6 7 8) (9 10 11 12) (13 14 15 16)))
+
+(define (dot-product v w)
+  (accumulate + 0 (map (lambda (x) (apply * x)) (zip v w))))
+
+(define (matrix-*-vector m v)
+  (map (lambda (u) (dot-product u v)) m))
+
+(define (transpose mat)
+  (accumulate-n cons '() mat))
+
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+    (map (lambda (v) (matrix-*-vector cols v)) m)))
+
+;; Ex 2.38
+
+(define (fold-left op initial sequence)
+  (define (iter result rest)
+    (if (null? rest)
+        result
+        (iter (op result (car rest))
+              (cdr rest))))
+  (iter initial sequence))
+
+(define (fold-right op initial sequence)
+  (accumulate op initial sequence))
+
+;; (fold-right / 1 (list 1 2 3))
+;; (fold-left  / 1 (list 1 2 3))
+;; (fold-right list nil (list 1 2 3))
+;; (fold-left  list nil (list 1 2 3))
+;; See the difference between the folds
+;; (fold-right (lambda (a b) (list 'op a b)) nil (list 1 2 3))
+;; (fold-left  (lambda (a b) (list 'op a b)) nil (list 1 2 3))
+
+;; foldl = foldr iff op is associative and commutative
+
+;; Ex 2.39
+(define (concat a b)
+  (cond
+    ((and (null? a) (null? b)) '())
+    ((null? a) (concat b '()))
+    (else (cons (car a)
+                (concat (cdr a) b)))))
+
+(define (rcons a b)
+  (if (null? a)
+      b
+      (cons (car a)
+            (concat (cdr a) b))))
+
+(define (reverse-1 sequence)
+  (fold-right 
+   (lambda (x y) (rcons y (list x))) nil sequence))
+
+(define (reverse-2 sequence)
+  (fold-left 
+   (lambda (x y) (cons y x)) nil sequence))
+
+(define (filter f l)
+  (cond
+    ((null? l) nil)
+    ((f (car l))
+     (cons (car l) (filter f (cdr l))))
+    (else
+     (filter f (cdr l)))))
+
+(define (flatmap proc seq)
+  (accumulate append nil (map proc seq)))
+
+(define (remove item sequence)
+  (filter (lambda (x) (not (eq? x item)))
+          sequence))
+
+;; Ex 2.40
+(define (range n)
+  (define (iter a)
+    (if (= a n)
+        nil
+        (cons a (iter (+ a 1)))))
+  (iter 0))
+
+(define (range2 a b)
+  (map (lambda (i)
+         (+ i a))
+       (range (- b a))))
+
+; (map range (range 10))
+
+(define (unique-pairs-rev n)
+  (flatmap (lambda (i)
+             (map (lambda (j)
+                    (list i j))
+                  (range2 (+ i 1) n)))
+   (range n)))
+
+(define (unique-pairs n)
+  (define (reverse-pair pair)
+    (list (car pair) (cadr pair)))
+  (map reverse-pair (unique-pairs-rev n)))
+
+;; (unique-pairs 10)
+
+;; Ex 2.41
+(define (2.41-triples n s)
+  (define (all-triples n)
+    (flatmap (lambda (i)
+               (flatmap (lambda (j)
+                          (map (lambda (k)
+                                 (list i j k))
+                               (range n)))
+                        (range n)))
+             (range n)))
+  (filter
+   (lambda (trip) (= s (apply + trip)))
+   (all-triples n)))
+
+;; (all-triples 10)
+
+;; Ex 2.42
+
+(define (contains? el col)
+  (fold-left
+   (lambda (acc cur) (or (eq? cur el) acc))
+   false
+   col))
+
+(define (set-minus A B)
+  (fold-left
+   (lambda (acc cur)
+     (remove cur acc))
+   A
+   B))
+   
+;; (define (down-diags queens)
+;;     (fold-right (lambda (acc cur)
+;;                 (cons
+;;                 (+ (length acc) cur)
+;;                 acc))
+;;             '()
+;;             queens))
+
+;; (define (eight-queens)
+;;   (define (rows) (range 8))
+;;   (define (safe-positions prev)
+;;     (let* ((unavail-rows prev)
+;;            (down-diags
+;;             (foldr (lambda (acc cur)
+;;                      (cons
+;;                       (+ (length acc) cur)
+;;                       acc))
+;;                    '()
+;;                    prev))
+;;            (up-diags
+;;             (foldl (lambda (acc cur)
+;;                      (cons
+;;                       (- (length acc) cur)
+;;                       acc))
+;;                    '()
+;;                    prev))
+
+
+
+;;     (set-minus (rows) prev)
+;;     ;; Add in diagonal checks here
+;;     )
+;;   (define (iter prev)
+;;     (if (>= (length prev) 8)
+;;         (list prev)
+;;         (flatmap
+;;          (lambda (x)
+;;            (iter (append prev (list x))))
+;;          (safe-positions prev))))
+
+;;   (iter '()))
+
+;; (eight-queens)
+(define (enumerate-interval a b)
+  (range2 a (+ b 1)))
+
+(define empty-board '())
+(define (adjoin-position a b c)
+  (cons a c))
+
+(define (down-diags positions)
+  (fold-left
+   (lambda (acc cur)
+     (cons (+ cur (length acc) 1) acc))
+   '()
+   positions))
+
+(define (up-diags positions)
+  (fold-left
+   (lambda (acc cur)
+     (cons (- cur (length acc) 1) acc))
+   '()
+   positions))
+
+(define (safe-next positions)
+  (let ((up (up-diags positions))
+        (down (down-diags positions)))
+    (fold-left
+     set-minus
+     (enumerate-interval 1 8)
+     (list up down positions))))
+
+(define (safe? k positions)
+  (contains? 
+   (car positions)
+   (safe-next (cdr positions))))
+
+(safe? 8 '(3 7 2 8 5 1 4 6))
+
+(define (queens board-size)
+  (define (queen-cols k)
+    (if (= k 0)
+        (list empty-board)
+        (filter
+         (lambda (positions) 
+           (safe? k positions))
+         (flatmap
+          (lambda (rest-of-queens)
+            (map (lambda (new-row)
+                   (adjoin-position 
+                    new-row 
+                    k 
+                    rest-of-queens))
+                 (enumerate-interval 
+                  1 
+                  board-size)))
+          (queen-cols (- k 1))))))
+  (queen-cols board-size))
+
+;; Skipping the picture language stuff
+
+
+;; Ex 2.54
+(define true #t)
+(define false #f)
+
+(define (equal?2 l1 l2)
+  (cond
+    ((and (null? l1) (null? l2)) true)
+    ((null? l1) false)
+    ((null? l2) false)
+    ((not (eq? (car l1) (car l2))) false)
+    (else (equal?2 (cdr l1) (cdr l2)))))

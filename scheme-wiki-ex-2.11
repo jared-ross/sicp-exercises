@@ -1,0 +1,376 @@
+----
+[http://community.schemewiki.org/?sicp-ex-2.10 << Previous exercise (2.10)]
+| [http://community.schemewiki.org/?sicp-solutions Index] |
+[http://community.schemewiki.org/?sicp-ex-2.12 Next exercise (2.12) >>]
+
+----
+<<<jared-ross
+I agree with everyone else here, Ben is very mean, this took a long time to answer.
+
+First I split intervals into three groups using this interval sign:
+{{{scheme
+; Signs for Intervals:
+;
+; +1: Sits only in the positives
+;  0: Contains 0, or includes 0 in it's bounds
+; -1: Sits only in the negatives
+;
+; To see how this works draw a chart of the operator, along side a
+; chart of s.
+(define (sign-interval iv)
+  (let* ((l (lower-bound-interval iv))
+        (u (upper-bound-interval iv))
+        (s (sign (* u l))))
+    (if (= s -1)
+        0
+        (* (sign l) s))))
+}}}
+
+Then I went through every combination of sign of two intervals, discarding with respect commutating (when switching the signs around gives you the same result as something else you have worked out), on paper, working out the combinations of multiplications needed, I resulted with this:
+
+{{{scheme
+(define (symbol->sign s)
+  (cond
+    ((eq? s  0)  0)
+    ((eq? s '+)  1)
+    ((eq? s '-) -1)))
+
+; This took me a long time to do.
+; I hope you appreciate this imagined reader of my code.
+(define (mul-interval a b)
+  ; (m)atch
+  (let ((sa (sign-interval a))
+        (sb (sign-interval b)))
+    (define (signs a b)
+        (and (= sa (symbol->sign a)) (= sb (symbol->sign b))))
+    (define (pos i p)
+      (if (eq? p 'u) (upper-bound-interval i) (lower-bound-interval i)))
+    (define (mult pa pb) ; (p)osition of a/b, (u)pper or (l)ower
+      (* (pos a pa) (pos b pb)))
+    (cond
+      ((signs '+ '+) (make-interval (mult 'l 'l) (mult 'u 'u)))
+      ((signs '- '+) (make-interval (mult 'l 'u) (mult 'u 'l)))
+      ((signs  0 '+) (make-interval (mult 'l 'u) (mult 'u 'u)))
+      ((signs '+ '-) (mul-interval b a))
+      ((signs '- '-) (make-interval (mult 'u 'u) (mult 'l 'l)))
+      ((signs  0 '-) (make-interval (mult 'u 'l) (mult 'l 'l)))
+      ((signs '+  0) (mul-interval b a))
+      ((signs '-  0) (mul-interval b a))
+      ((signs  0  0) (make-interval
+                      (min (mult 'l 'u) (mult 'u 'l))
+                      (max (mult 'l 'l) (mult 'u 'u))))
+      )
+    )
+  )
+}}}
+
+Then I built some code to test it:
+
+{{{scheme
+(define (random-interval)
+  (define width 5)
+  (define granularity 0.25)
+  (define (random-point)
+    (let* ((num-granules (inexact->exact (/ width granularity)))
+           (a-granule (random (+ num-granules 1)))
+           (scaled-granule (* a-granule granularity))
+           (scaled-and-shifted-granule (- scaled-granule (/ width 2))))
+      scaled-and-shifted-granule))
+  (let ((p1 (random-point))
+        (p2 (random-point)))
+         (make-interval (min p1 p2) (max p1 p2))))
+
+(define (format-interval iv)
+  (define $ number->string)
+  (string-append
+   "[" ($ (lower-bound-interval iv)) "," ($ (upper-bound-interval iv)) "]"))
+
+(define (repeat-call f n)
+  (f)
+  (if (= n 1)
+      nil
+      (repeat-call f (- n 1)))
+  )
+
+(define (equal?-interval a b)
+  (and
+   (=
+    (upper-bound-interval a)
+    (upper-bound-interval b))
+   (=
+    (lower-bound-interval a)
+    (lower-bound-interval b))))
+
+(define (test-new-mul-interval)
+  (define number-of-tests 1000)
+  (define (error i1 i2)
+    (newline)
+    (display "Failed Match: ")
+    (display (format-interval i1))
+    (display " , ")
+    (display (format-interval i2))
+    (display " => ")
+    (display (format-interval (old-mul-interval i1 i2)))
+    (display " != ")
+    (display (format-interval (mul-interval i1 i2)))
+    (newline))
+  (define (test)
+    (let ((i1 (random-interval))
+          (i2 (random-interval)))
+      (if
+       (equal?-interval (old-mul-interval i1 i2) (mul-interval i1 i2))
+       (display ".")
+       (error i1 i2))
+      ))
+  (repeat-call test number-of-tests)
+  )
+}}}
+
+And everything seems to pass, so I think it is working :)
+
+Contact me at (join-with-dots jared b ross) on gmail
+>>>
+
+<<<jz
+
+Ben Bitdiddle should stick to diddling his own bits.  His comment just obfuscates the code.  But, if we know the signs of the endpoints, we have 3 possible cases for each interval: both ends positive, both negative, or an interval spanning zero; therefore, there are 3x3 = 9 possible cases to test for, which reduces the number of multiplications, except when both intervals span zero.
+
+{{{scheme
+
+;; ex 2.7
+(define (make-interval a b) (cons a b))
+(define (upper-bound interval) (max (car interval) (cdr interval)))
+(define (lower-bound interval) (min (car interval) (cdr interval)))
+
+(define (print-interval name i)
+  (newline)
+  (display name)
+  (display ": [")
+  (display (lower-bound i))
+  (display ",")
+  (display (upper-bound i))
+  (display "]"))
+
+;; Old multiplication (given)
+(define (old-mul-interval x y)
+  (let ((p1 (* (lower-bound x) (lower-bound y)))
+        (p2 (* (lower-bound x) (upper-bound y)))
+        (p3 (* (upper-bound x) (lower-bound y)))
+        (p4 (* (upper-bound x) (upper-bound y))))
+    (make-interval (min p1 p2 p3 p4)
+                   (max p1 p2 p3 p4))))
+
+
+;; This looks a *lot* more complicated to me, and with the extra
+;; function calls I'm not sure that the complexity is worth it.
+(define (mul-interval x y)
+  ;; endpoint-sign returns:
+  ;;     +1 if both endpoints non-negative,
+  ;;     -1 if both negative,
+  ;;      0 if opposite sign
+  (define (endpoint-sign i)
+    (cond ((and (>= (upper-bound i) 0)
+                (>= (lower-bound i) 0))
+           1)
+          ((and (< (upper-bound i) 0)
+                (< (lower-bound i) 0))
+           -1)
+          (else 0)))
+
+  (let ((es-x (endpoint-sign x))
+        (es-y (endpoint-sign y))
+        (x-up (upper-bound x))
+        (x-lo (lower-bound x))
+        (y-up (upper-bound y))
+        (y-lo (lower-bound y)))
+
+    (cond ((> es-x 0) ;; both x endpoints are +ve or 0
+           (cond ((> es-y 0)
+                  (make-interval (* x-lo y-lo) (* x-up y-up)))
+                 ((< es-y 0)
+                  (make-interval (* x-up y-lo) (* x-lo y-up)))
+                 (else
+                  (make-interval (* x-up y-lo) (* x-up y-up)))))
+
+          ((< es-x 0) ;; both x endpoints are -ve
+           (cond ((> es-y 0)
+                  (make-interval (* x-lo y-up) (* x-up y-lo)))
+                 ((< es-y 0)
+                  (make-interval (* x-up y-up) (* x-lo y-lo)))
+                 (else
+                  (make-interval (* x-lo y-up) (* x-lo y-lo)))))
+
+          (else  ;; x spans 0
+           (cond ((> es-y 0)
+                  (make-interval (* x-lo y-up) (* x-up y-up)))
+                 ((< es-y 0)
+                  (make-interval (* x-up y-lo) (* x-lo y-lo)))
+                 (else
+                  ;; Both x and y span 0 ... need to check values
+                  (make-interval (min (* x-lo y-up) (* x-up y-lo))
+                                 (max (* x-lo y-lo) (* x-up y-up)))))))))
+
+
+}}}
+
+The above is so gross I tested it out.  Yes, I'm a keener.
+
+{{{scheme
+
+(define (eql-interval? a b)
+  (and (= (upper-bound a) (upper-bound b))
+       (= (lower-bound a) (lower-bound b))))
+
+;; Fails if the new mult doesn't return the same answer as the old
+;; naive mult.
+(define (ensure-mult-works aH aL bH bL)
+  (let ((a (make-interval aL aH))
+        (b (make-interval bL bH)))
+  (if (eql-interval? (old-mul-interval a b)
+                     (mul-interval a b))
+      true
+      (error "new mult returns different value!"
+             a
+             b
+             (old-mul-interval a b)
+             (mul-interval a b)))))
+
+
+;; The following is overkill, but it found some errors in my
+;; work.  The first two #s are the endpoints of one interval, the last
+;; two are the other's.  There are 3 possible layouts (both pos, both
+;; neg, one pos one neg), with 0's added for edge cases (pos-0, 0-0,
+;; 0-neg).
+
+(ensure-mult-works  +10 +10   +10 +10)
+(ensure-mult-works  +10 +10   +00 +10)
+(ensure-mult-works  +10 +10   +00 +00)
+(ensure-mult-works  +10 +10   +10 -10)
+(ensure-mult-works  +10 +10   -10 +00)
+(ensure-mult-works  +10 +10   -10 -10)
+
+(ensure-mult-works  +00 +10   +10 +10)
+(ensure-mult-works  +00 +10   +00 +10)
+(ensure-mult-works  +00 +10   +00 +00)
+(ensure-mult-works  +00 +10   +10 -10)
+(ensure-mult-works  +00 +10   -10 +00)
+(ensure-mult-works  +00 +10   -10 -10)
+
+(ensure-mult-works  +00 +00   +10 +10)
+(ensure-mult-works  +00 +00   +00 +10)
+(ensure-mult-works  +00 +00   +00 +00)
+(ensure-mult-works  +00 +00   +10 -10)
+(ensure-mult-works  +00 +00   -10 +00)
+(ensure-mult-works  +00 +00   -10 -10)
+
+(ensure-mult-works  +10 -10   +10 +10)
+(ensure-mult-works  +10 -10   +00 +10)
+(ensure-mult-works  +10 -10   +00 +00)
+(ensure-mult-works  +10 -10   +10 -10)
+(ensure-mult-works  +10 -10   -10 +00)
+(ensure-mult-works  +10 -10   -10 -10)
+
+(ensure-mult-works  -10 +00   +10 +10)
+(ensure-mult-works  -10 +00   +00 +10)
+(ensure-mult-works  -10 +00   +00 +00)
+(ensure-mult-works  -10 +00   +10 -10)
+(ensure-mult-works  -10 +00   -10 +00)
+(ensure-mult-works  -10 +00   -10 -10)
+
+(ensure-mult-works  -10 -10   +10 +10)
+(ensure-mult-works  -10 -10   +00 +10)
+(ensure-mult-works  -10 -10   +00 +00)
+(ensure-mult-works  -10 -10   +10 -10)
+(ensure-mult-works  -10 -10   -10 +00)
+(ensure-mult-works  -10 -10   -10 -10)
+
+;; All of these run without any errors now.
+
+
+}}}
+
+>>>
+
+<<<jsdalton
+
+Yeah, Ben certainly has an evil streak.
+
+I was able to reduce a bit of the clutter by reworking the way the conditional logic is framed. I observed that there were certain patterns in where values were getting passed to the call to make-interval. So rather than working through the conditions and calling make-interval accordingly, I set it up to select the appropriate value for each "slot".
+
+For clarity everything else is the same as jz's solution above. The testing procedures he came up with were also invaluable in working out kinks. Ultimately I'm not sure my solution is any clearer or better -- it's quite possibly neither. It is a tiny bit more concise though:
+
+{{{scheme
+(define (mul-interval x y)
+     (define (endpoint-sign i)
+       (cond ((and (>= (upper-bound i) 0)
+                   (>= (lower-bound i) 0))
+              1)
+             ((and (< (upper-bound i) 0)
+                   (< (lower-bound i) 0))
+              -1)
+             (else 0)))
+
+     (let ((es-x (endpoint-sign x))
+           (es-y (endpoint-sign y))
+           (x-up (upper-bound x))
+           (x-lo (lower-bound x))
+           (y-up (upper-bound y))
+           (y-lo (lower-bound y)))
+
+       (if (and (= es-x 0) (= es-y 0))
+         ; Take care of the exceptional condition where we have to test
+         (make-interval (min (* x-lo y-up) (* x-up y-lo))
+                        (max (* x-lo y-lo) (* x-up y-up)))
+
+         ; Otherwise, select which value goes in which "slot". I'm not sure
+         ; whether there is an intuitive way to explain *why* these
+         ; selections work.
+         (let ((a1 (if (and (<= es-y 0) (<= (- es-y es-x) 0)) x-up x-lo))
+               (a2 (if (and (<= es-x 0) (<= (- es-x es-y) 0)) y-up y-lo))
+               (b1 (if (and (<= es-y 0) (<= (+ es-y es-x) 0)) x-lo x-up))
+               (b2 (if (and (<= es-x 0) (<= (+ es-x es-y) 0)) y-lo y-up)))
+           (make-interval (* a1 a2) (* b1 b2))))))
+
+}}}
+
+
+>>>
+
+<<< vpraid
+
+This solutions has 9 cases, exactly as it is required by the problem statement, and all of them are clearly visible (although I wouldn't say readable). I had to redefine positive? predicate that is provided by my scheme interpreter. It also passes all of jz's test cases.
+
+{{{scheme
+
+(define (mul-interval x y)
+  (define (positive? x) (>= x 0))
+  (define (negative? x) (< x 0))
+  (let ((xl (lower-bound x))
+        (xu (upper-bound x))
+        (yl (lower-bound y))
+        (yu (upper-bound y)))
+    (cond ((and (positive? xl) (positive? yl))
+           (make-interval (* xl yl) (* xu yu)))
+          ((and (positive? xl) (negative? yl))
+           (make-interval (* xu yl) (* (if (negative? yu) xl xu) yu)))
+          ((and (negative? xl) (positive? yl))
+           (make-interval (* xl yu) (* xu (if (negative? xu) yl yu))))
+          ((and (positive? xu) (positive? yu))
+           (let ((l (min (* xl yu) (* xu yl)))
+                 (u (max (* xl yl) (* xu yu))))
+             (make-interval l u)))
+          ((and (positive? xu) (negative? yu))
+           (make-interval (* xu yl) (* xl yl)))
+          ((and (negative? xu) (positive? yu))
+           (make-interval (* xl yu) (* xl yl)))
+          (else
+           (make-interval (* xu yu) (* xl yl))))))
+
+}}}
+
+----
+<<<jwilly
+
+I believe jz's tests go beyond the scope of this problem by allowing an interval's lower bound to be greater than its upper bound and can make this problem seem more difficult than it actually is.
+
+The constructor for make-interval given in the book (2nd edition) does not swap the values if the first parameter is greater than the second parameter. Instead the onus is on the client to use the function properly. The client should assume that the lower bound has to be smaller than the upper bound. jz's tests while all encompassing will not pass vpraid's solution unless you alter the make-interval constructor to swap out of order values.

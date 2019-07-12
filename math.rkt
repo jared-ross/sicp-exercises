@@ -15,14 +15,14 @@
         (iter (compose f acc) (dec count))))
   (iter identity n))
 
-(define (accumulate combiner null-value term a next b)
-  (define (iter acc a)
-    ;; (display (list 'iter acc a))
-    ;; (newline)
-    (if (> a b)
-        acc
-        (iter (combiner (term a) acc) (next a))))
-  (iter null-value a))
+;; (define (accumulate combiner null-value term a next b)
+;;   (define (iter acc a)
+;;     ;; (display (list 'iter acc a))
+;;     ;; (newline)
+;;     (if (> a b)
+;;         acc
+;;         (iter (combiner (term a) acc) (next a))))
+;;   (iter null-value a))
 
 (define (identity x) x)
 
